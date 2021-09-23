@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MetadataGeneratorUtilTest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">checkstyle$MetadataGeneratorUtilTest.exec</a> &gt; <a href="index.source.html" class="el_package">com.puppycrawl.tools.checkstyle.meta</a> &gt; <span class="el_source">MetadataGeneratorUtilTest.java</span></div><h1>MetadataGeneratorUtilTest.java</h1><pre class="source lang-java linenums">////////////////////////////////////////////////////////////////////////////////
+// checkstyle: Checks Java source code for adherence to a set of rules.
+// Copyright (C) 2001-2021 the original author or authors.
+//
+// This library is free software; you can redistribute it and/or
+// modify it under the terms of the GNU Lesser General Public
+// License as published by the Free Software Foundation; either
+// version 2.1 of the License, or (at your option) any later version.
+//
+// This library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public
+// License along with this library; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+////////////////////////////////////////////////////////////////////////////////
+
+package com.puppycrawl.tools.checkstyle.meta;
+
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.junit.jupiter.api.Test;
+
+import com.puppycrawl.tools.checkstyle.AbstractModuleTestSupport;
+import com.puppycrawl.tools.checkstyle.Checker;
+import com.puppycrawl.tools.checkstyle.DefaultConfiguration;
+import com.puppycrawl.tools.checkstyle.TreeWalker;
+import com.puppycrawl.tools.checkstyle.api.CheckstyleException;
+import com.puppycrawl.tools.checkstyle.internal.utils.CheckUtil;
+import com.puppycrawl.tools.checkstyle.utils.CommonUtil;
+
+<span class="fc" id="L50">public final class MetadataGeneratorUtilTest extends AbstractModuleTestSupport {</span>
+
+<span class="fc" id="L52">    private final String invalidMetadataPackage = System.getProperty(&quot;user.dir&quot;)</span>
+        + &quot;/src/test/resources/com/puppycrawl/tools/checkstyle&quot;
+        + &quot;/meta/javadocmetadatascraper/invalid_metadata&quot;;
+
+<span class="fc" id="L56">    private final List&lt;String&gt; modulesContainingNoMetadataFile = Arrays.asList(</span>
+            &quot;Checker&quot;,
+            &quot;TreeWalker&quot;,
+            &quot;JavadocMetadataScraper&quot;
+    );
+
+    @Override
+    protected String getPackageLocation() {
+<span class="nc" id="L64">        return &quot;com/puppycrawl/tools/checkstyle/meta/javadocmetadatascraper/invalid_metadata&quot;;</span>
+    }
+
+    @Test
+    public void testMetadataFilesGenerationAllFiles() throws Exception {
+<span class="fc" id="L69">        MetadataGeneratorUtil.generate(System.getProperty(&quot;user.dir&quot;)</span>
+                + &quot;/src/main/java/com/puppycrawl/tools/checkstyle&quot;);
+        final Set&lt;String&gt; metaFiles;
+
+<span class="fc" id="L73">        try (Stream&lt;Path&gt; fileStream = Files.walk(</span>
+<span class="fc" id="L74">                Paths.get(System.getProperty(&quot;user.dir&quot;) + &quot;/src/main/resources/com/puppycrawl&quot;</span>
+                        + &quot;/tools/checkstyle/meta&quot;))) {
+<span class="fc" id="L76">            metaFiles = fileStream</span>
+<span class="fc" id="L77">                    .map(Path::toString)</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">                    .filter(fileName -&gt; !fileName.endsWith(&quot;.properties&quot;))</span>
+<span class="fc" id="L79">                    .map(Paths::get)</span>
+<span class="fc" id="L80">                    .filter(Files::isRegularFile)</span>
+<span class="fc" id="L81">                    .map(MetadataGeneratorUtilTest::getMetaFileName)</span>
+<span class="fc" id="L82">                    .sorted()</span>
+<span class="fc" id="L83">                    .collect(Collectors.toCollection(LinkedHashSet::new));</span>
+        }
+        final Set&lt;String&gt; checkstyleModules =
+<span class="fc" id="L86">                CheckUtil.getSimpleNames(CheckUtil.getCheckstyleModules())</span>
+<span class="fc" id="L87">                .stream()</span>
+<span class="fc" id="L88">                .sorted()</span>
+<span class="fc" id="L89">                .collect(Collectors.toCollection(LinkedHashSet::new));</span>
+<span class="fc" id="L90">        checkstyleModules.removeAll(modulesContainingNoMetadataFile);</span>
+<span class="fc" id="L91">        assertEquals(&quot;Number of generated metadata files dont match with number of checkstyle &quot;</span>
+                        + &quot;module&quot;, checkstyleModules, metaFiles);
+<span class="fc" id="L93">    }</span>
+
+    @Test
+    public void testMetadataFilesWithNoDescription() throws Exception {
+
+<span class="fc" id="L98">        final String path = System.getProperty(&quot;user.dir&quot;)</span>
+                + &quot;/src/main/java/com/puppycrawl/tools/checkstyle&quot;;
+
+<span class="fc" id="L101">        final DefaultConfiguration scraperCheckConfig =</span>
+<span class="fc" id="L102">                createModuleConfig(JavadocMetadataScraper.class);</span>
+<span class="fc" id="L103">        final DefaultConfiguration treeWalkerConfig =</span>
+<span class="fc" id="L104">                createModuleConfig(TreeWalker.class);</span>
+
+<span class="fc" id="L106">        treeWalkerConfig.addChild(scraperCheckConfig);</span>
+
+<span class="fc" id="L108">        final Checker checker = createChecker(treeWalkerConfig);</span>
+
+<span class="fc" id="L110">        final List&lt;File&gt; validFiles = MetadataGeneratorUtil.extractValidFiles(path);</span>
+
+<span class="fc" id="L112">        final String[] expected = {</span>
+<span class="fc" id="L113">            &quot;31: &quot; + getCheckMessage(JavadocMetadataScraper.DESC_MISSING, &quot;AbstractSuper&quot;),</span>
+<span class="fc" id="L114">            &quot;41: &quot; + getCheckMessage(JavadocMetadataScraper.DESC_MISSING, &quot;AbstractJavadoc&quot;),</span>
+            &quot;26: &quot;
+<span class="fc" id="L116">                    + getCheckMessage(</span>
+                            JavadocMetadataScraper.DESC_MISSING, &quot;AbstractAccessControlName&quot;),
+<span class="fc" id="L118">            &quot;30: &quot; + getCheckMessage(JavadocMetadataScraper.DESC_MISSING, &quot;AbstractName&quot;),</span>
+<span class="fc" id="L119">            &quot;43: &quot; + getCheckMessage(JavadocMetadataScraper.DESC_MISSING, &quot;AbstractHeader&quot;),</span>
+            &quot;29: &quot;
+<span class="fc" id="L121">                    + getCheckMessage(JavadocMetadataScraper.DESC_MISSING, &quot;AbstractParenPad&quot;),</span>
+<span class="fc" id="L122">            &quot;45: &quot; + getCheckMessage(JavadocMetadataScraper.DESC_MISSING, &quot;AbstractClassCoupling&quot;),</span>
+        };
+<span class="fc" id="L124">        final Map&lt;String, List&lt;String&gt;&gt; expectedViolation = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L125">        addExpectedViolationsToMap(validFiles, expected, expectedViolation);</span>
+
+<span class="fc" id="L127">        final File[] filesToBeProcessed = new File[validFiles.size()];</span>
+
+<span class="fc" id="L129">        verify(checker, validFiles.toArray(filesToBeProcessed), expectedViolation);</span>
+
+<span class="fc" id="L131">    }</span>
+
+    @Test
+    public void testMetadataFileGenerationDefaultValueMisplaced() {
+<span class="fc" id="L135">        final CheckstyleException exc = assertThrows(CheckstyleException.class, () -&gt; {</span>
+<span class="nc" id="L136">            MetadataGeneratorUtil.generate(invalidMetadataPackage</span>
+                + &quot;/InputJavadocMetadataScraperPropertyMisplacedDefaultValueCheck.java&quot;);
+<span class="nc" id="L138">        });</span>
+<span class="fc" id="L139">        assertThat(exc.getCause()).isInstanceOf(MetadataGenerationException.class);</span>
+<span class="fc" id="L140">        assertThat(exc.getCause().getMessage()).isEqualTo(</span>
+            &quot;Default value for property 'misplacedDefaultValue' is missing&quot;);
+<span class="fc" id="L142">    }</span>
+
+    @Test
+    public void testMetadataFileGenerationTypeMisplaced() {
+<span class="fc" id="L146">        final CheckstyleException exc = assertThrows(CheckstyleException.class, () -&gt; {</span>
+<span class="nc" id="L147">            MetadataGeneratorUtil.generate(invalidMetadataPackage</span>
+                + &quot;/InputJavadocMetadataScraperPropertyMisplacedTypeCheck.java&quot;);
+<span class="nc" id="L149">        });</span>
+<span class="fc" id="L150">        assertThat(exc.getCause()).isInstanceOf(MetadataGenerationException.class);</span>
+<span class="fc" id="L151">        assertThat(exc.getCause().getMessage()).isEqualTo(</span>
+            &quot;Type for property 'misplacedType' is missing&quot;);
+<span class="fc" id="L153">    }</span>
+
+    @Test
+    public void testMetadataFileGenerationTypeMissing() {
+<span class="fc" id="L157">        final CheckstyleException exc = assertThrows(CheckstyleException.class, () -&gt; {</span>
+<span class="nc" id="L158">            MetadataGeneratorUtil.generate(invalidMetadataPackage</span>
+                + &quot;/InputJavadocMetadataScraperPropertyMissingTypeCheck.java&quot;);
+<span class="nc" id="L160">        });</span>
+<span class="fc" id="L161">        assertThat(exc.getCause()).isInstanceOf(MetadataGenerationException.class);</span>
+<span class="fc" id="L162">        assertThat(exc.getCause().getMessage()).isEqualTo(</span>
+            &quot;Type for property 'missingType' is missing&quot;);
+<span class="fc" id="L164">    }</span>
+
+    @Test
+    public void testMetadataFileGenerationDefaultValueMissing() {
+<span class="fc" id="L168">        final CheckstyleException exc = assertThrows(CheckstyleException.class, () -&gt; {</span>
+<span class="nc" id="L169">            MetadataGeneratorUtil.generate(invalidMetadataPackage</span>
+                + &quot;/InputJavadocMetadataScraperPropertyMissingDefaultValueCheck.java&quot;);
+<span class="nc" id="L171">        });</span>
+<span class="fc" id="L172">        assertThat(exc.getCause()).isInstanceOf(MetadataGenerationException.class);</span>
+<span class="fc" id="L173">        assertThat(exc.getCause().getMessage()).isEqualTo(</span>
+            &quot;Default value for property 'missingDefaultValue' is missing&quot;);
+<span class="fc" id="L175">    }</span>
+
+    /**
+     * Get meta file name from full file name.
+     *
+     * @param file file to process
+     * @return meta file name
+     */
+    private static String getMetaFileName(Path file) {
+<span class="fc" id="L184">        final String fileName = file.getFileName().toString();</span>
+        final int lengthToOmit;
+<span class="fc bfc" id="L186" title="All 2 branches covered.">        if (fileName.contains(&quot;Check&quot;)) {</span>
+<span class="fc" id="L187">            lengthToOmit = &quot;Check.xml&quot;.length();</span>
+        }
+        else {
+<span class="fc" id="L190">            lengthToOmit = &quot;.xml&quot;.length();</span>
+        }
+<span class="fc" id="L192">        return fileName.substring(0, fileName.length() - lengthToOmit);</span>
+    }
+
+    /**
+     * Fill the expectedViolation map.
+     *
+     * @param validFiles files to be processed
+     * @param expected expected violation
+     * @param expectedViolation map of expected violations
+     */
+    private static void addExpectedViolationsToMap(List&lt;File&gt; validFiles, String[] expected,
+                                                   Map&lt;String, List&lt;String&gt;&gt; expectedViolation) {
+<span class="fc" id="L204">        final String[] empty = CommonUtil.EMPTY_STRING_ARRAY;</span>
+
+        String className;
+
+        String classPath;
+<span class="fc bfc" id="L209" title="All 2 branches covered.">        for (File currFile : validFiles) {</span>
+<span class="fc" id="L210">            className = currFile.getName();</span>
+<span class="fc" id="L211">            classPath = currFile.getAbsolutePath();</span>
+<span class="fc bfc" id="L212" title="All 8 branches covered.">            switch (className.split(&quot;Check.java&quot;)[0]) {</span>
+                case &quot;AbstractSuper&quot;:
+<span class="fc" id="L214">                    expectedViolation.put(classPath, Collections.singletonList(expected[0]));</span>
+<span class="fc" id="L215">                    break;</span>
+                case &quot;AbstractJavadoc&quot;:
+<span class="fc" id="L217">                    expectedViolation.put(classPath, Collections.singletonList(expected[1]));</span>
+<span class="fc" id="L218">                    break;</span>
+                case &quot;AbstractAccessControlName&quot;:
+<span class="fc" id="L220">                    expectedViolation.put(classPath, Collections.singletonList(expected[2]));</span>
+<span class="fc" id="L221">                    break;</span>
+                case &quot;AbstractName&quot;:
+<span class="fc" id="L223">                    expectedViolation.put(classPath, Collections.singletonList(expected[3]));</span>
+<span class="fc" id="L224">                    break;</span>
+                case &quot;AbstractHeader&quot;:
+<span class="fc" id="L226">                    expectedViolation.put(classPath, Collections.singletonList(expected[4]));</span>
+<span class="fc" id="L227">                    break;</span>
+                case &quot;AbstractParenPad&quot;:
+<span class="fc" id="L229">                    expectedViolation.put(classPath, Collections.singletonList(expected[5]));</span>
+<span class="fc" id="L230">                    break;</span>
+                case &quot;AbstractClassCoupling&quot;:
+<span class="fc" id="L232">                    expectedViolation.put(classPath, Collections.singletonList(expected[6]));</span>
+<span class="fc" id="L233">                    break;</span>
+                default:
+<span class="fc" id="L235">                    expectedViolation.put(classPath, Arrays.asList(empty));</span>
+                    break;
+            }
+<span class="fc" id="L238">        }</span>
+<span class="fc" id="L239">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.7.202105040129</span></div></body></html>
